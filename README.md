@@ -27,3 +27,9 @@ python3 -m unittest test_bilanz  # Tests
 
 Weitere Funktionen: T-Konten, Journal, Kontenübersicht, Buchungen löschen,
 Speichern/Laden als JSON, Beispieldaten (Menüpunkt 10).
+
+## HTML-Version
+
+`bilanz.html` einfach im Browser öffnen – gleiche Funktionen mit grafischer
+Oberfläche, Daten bleiben im Browser gespeichert. JSON-Dateien des
+Python-Programms können dort ebenfalls geladen werden.

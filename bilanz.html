@@ -1,0 +1,417 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bilanz-Programm</title>
+<style>
+:root {
+  --bg: #f6f5f1; --surface: #ffffff; --text: #1d1d1b; --muted: #6b6a65;
+  --border: #dddbd3; --accent: #2f5d8a; --accent-text: #ffffff;
+  --ok: #2e7d4f; --err: #b3261e; --row: #f1efe8;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #161615; --surface: #1f1f1d; --text: #ecebe6; --muted: #a09f98;
+    --border: #3a3935; --accent: #7fb0e0; --accent-text: #10202f;
+    --ok: #6cc28f; --err: #f08c84; --row: #272724;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #161615; --surface: #1f1f1d; --text: #ecebe6; --muted: #a09f98;
+  --border: #3a3935; --accent: #7fb0e0; --accent-text: #10202f;
+  --ok: #6cc28f; --err: #f08c84; --row: #272724;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--bg); color: var(--text);
+  font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+main { max-width: 1100px; margin: 0 auto; padding: 24px 16px 64px; }
+h1 { font-size: 1.6rem; margin: 0 0 4px; }
+h2 { font-size: 1.1rem; margin: 0 0 12px; }
+p.lead { color: var(--muted); margin: 0 0 24px; }
+.grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+@media (max-width: 760px) { .grid { grid-template-columns: 1fr; } }
+.card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 10px; padding: 16px; margin-bottom: 16px; min-width: 0;
+}
+form { display: grid; gap: 10px; }
+.row { display: flex; gap: 10px; flex-wrap: wrap; }
+.row > * { flex: 1 1 140px; min-width: 0; }
+label { display: grid; gap: 4px; font-size: .85rem; color: var(--muted); }
+input, select {
+  font: inherit; color: var(--text); background: var(--bg);
+  border: 1px solid var(--border); border-radius: 6px; padding: 7px 9px; width: 100%;
+}
+button {
+  font: inherit; cursor: pointer; border-radius: 6px; padding: 7px 14px;
+  border: 1px solid var(--accent); background: var(--accent); color: var(--accent-text);
+}
+button.ghost { background: transparent; color: var(--accent); }
+button.del { background: transparent; border: none; color: var(--err); padding: 2px 6px; }
+.toolbar { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+.msg { min-height: 1.4em; font-size: .9rem; }
+.msg.err { color: var(--err); } .msg.ok { color: var(--ok); }
+.scroll { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: .92rem; }
+th, td { padding: 6px 8px; text-align: left; border-bottom: 1px solid var(--border); }
+th { color: var(--muted); font-weight: 600; font-size: .8rem; text-transform: uppercase; letter-spacing: .03em; }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+tr.sum td { font-weight: 700; border-top: 2px solid var(--text); border-bottom: none; }
+.empty { color: var(--muted); font-style: italic; }
+.bilanz { display: grid; grid-template-columns: 1fr 1fr; border: 2px solid var(--text); border-radius: 6px; overflow: hidden; }
+.bilanz > div { padding: 0; min-width: 0; }
+.bilanz > div:first-child { border-right: 2px solid var(--text); }
+.bilanz h3 { margin: 0; padding: 8px; text-align: center; font-size: .95rem; background: var(--row); border-bottom: 1px solid var(--border); }
+.bilanz table td { border-bottom: none; }
+.bilanz table td:first-child { overflow-wrap: anywhere; }
+@media (max-width: 560px) {
+  .bilanz { grid-template-columns: 1fr; }
+  .bilanz > div:first-child { border-right: none; border-bottom: 2px solid var(--text); }
+}
+.status { margin-top: 12px; font-weight: 600; }
+.status.ok { color: var(--ok); } .status.err { color: var(--err); }
+.tkonten { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
+.tkonto { border: 1px solid var(--border); border-radius: 6px; padding: 8px; }
+.tkonto h4 { margin: 0 0 6px; text-align: center; font-size: .9rem; }
+.tkonto .t { display: grid; grid-template-columns: 1fr 1fr; border-top: 2px solid var(--text); }
+.tkonto .t > div:first-child { border-right: 2px solid var(--text); }
+.tkonto .t div div { display: flex; justify-content: space-between; gap: 6px; padding: 2px 6px; font-size: .82rem; }
+.tkonto .t div div span:last-child { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.tkonto .head { font-weight: 600; color: var(--muted); }
+.tkonto .saldo { font-style: italic; color: var(--muted); }
+details summary { cursor: pointer; font-weight: 600; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Bilanz-Programm</h1>
+  <p class="lead">Posten mit Anfangsbeständen anlegen, Buchungssätze „Soll an Haben“ erfassen – Bilanz und GuV werden automatisch erstellt.</p>
+
+  <div class="toolbar">
+    <button class="ghost" id="btnBeispiel">Beispieldaten laden</button>
+    <button class="ghost" id="btnExport">Als JSON speichern</button>
+    <button class="ghost" id="btnImport">JSON laden</button>
+    <button class="ghost" id="btnReset">Alles löschen</button>
+    <input type="file" id="fileInput" accept=".json,application/json" hidden>
+  </div>
+
+  <div class="grid">
+    <section class="card">
+      <h2>1. Posten / Konto anlegen</h2>
+      <form id="formKonto">
+        <div class="row">
+          <label>Name<input name="name" required placeholder="z. B. Bank"></label>
+          <label>Kontoart
+            <select name="art">
+              <option value="aktiv">Aktivkonto</option>
+              <option value="passiv">Passivkonto</option>
+              <option value="aufwand">Aufwandskonto</option>
+              <option value="ertrag">Ertragskonto</option>
+            </select>
+          </label>
+          <label>Anfangsbestand<input name="ab" inputmode="decimal" placeholder="0,00"></label>
+        </div>
+        <div><button type="submit">Konto anlegen</button></div>
+        <div class="msg" id="msgKonto"></div>
+      </form>
+    </section>
+
+    <section class="card">
+      <h2>2. Buchung erfassen</h2>
+      <form id="formBuchung">
+        <div class="row">
+          <label>Soll<select name="soll" required></select></label>
+          <label>an Haben<select name="haben" required></select></label>
+          <label>Betrag<input name="betrag" inputmode="decimal" required placeholder="0,00"></label>
+        </div>
+        <label>Buchungstext<input name="text" placeholder="optional"></label>
+        <div><button type="submit">Buchen</button></div>
+        <div class="msg" id="msgBuchung"></div>
+      </form>
+    </section>
+  </div>
+
+  <section class="card">
+    <h2>Bilanz</h2>
+    <div id="bilanz"></div>
+  </section>
+
+  <div class="grid">
+    <section class="card">
+      <h2>Gewinn- und Verlustrechnung</h2>
+      <div class="scroll" id="guv"></div>
+    </section>
+    <section class="card">
+      <h2>Konten</h2>
+      <div class="scroll" id="konten"></div>
+    </section>
+  </div>
+
+  <section class="card">
+    <h2>Journal</h2>
+    <div class="scroll" id="journal"></div>
+  </section>
+
+  <section class="card">
+    <details>
+      <summary>T-Konten anzeigen</summary>
+      <div class="tkonten" id="tkonten" style="margin-top:12px"></div>
+    </details>
+  </section>
+</main>
+
+<script>
+"use strict";
+const ARTEN = { aktiv: "Aktivkonto", passiv: "Passivkonto", aufwand: "Aufwandskonto", ertrag: "Ertragskonto" };
+const KEY = "bilanz-programm-v1";
+
+// Beträge werden intern als ganze Cent gespeichert (keine Rundungsfehler)
+let state = { konten: [], buchungen: [] };
+
+function parseBetrag(text) {
+  let t = String(text).trim().replace(/€/g, "").replace(/\s/g, "");
+  if (!t) throw new Error("Kein Betrag angegeben.");
+  if (t.includes(",")) t = t.replace(/\./g, "").replace(",", ".");
+  if (!/^-?\d+(\.\d+)?$/.test(t)) throw new Error(`Ungültiger Betrag: "${text}"`);
+  return Math.round(parseFloat(t) * 100);
+}
+const nf = new Intl.NumberFormat("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const fmt = c => nf.format(c / 100) + " €";
+const esc = s => String(s).replace(/[&<>"']/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]));
+
+const finde = name => {
+  const k = state.konten.find(k => k.name.toLowerCase() === String(name).trim().toLowerCase());
+  if (!k) throw new Error(`Konto "${name}" existiert nicht.`);
+  return k;
+};
+const istBestand = k => k.art === "aktiv" || k.art === "passiv";
+const sollMehrung = k => k.art === "aktiv" || k.art === "aufwand";
+
+function kontoAnlegen(name, art, ab = 0) {
+  name = name.trim();
+  if (!name) throw new Error("Kontoname darf nicht leer sein.");
+  if (!ARTEN[art]) throw new Error("Unbekannte Kontoart.");
+  if (state.konten.some(k => k.name.toLowerCase() === name.toLowerCase())) throw new Error(`Konto "${name}" existiert bereits.`);
+  if (ab < 0) throw new Error("Anfangsbestand darf nicht negativ sein.");
+  if (!istBestand({ art }) && ab !== 0) throw new Error("Erfolgskonten haben keinen Anfangsbestand.");
+  state.konten.push({ name, art, ab });
+}
+function buchen(soll, haben, betrag, text = "") {
+  const s = finde(soll), h = finde(haben);
+  if (s === h) throw new Error("Soll- und Habenkonto müssen verschieden sein.");
+  if (!(betrag > 0)) throw new Error("Betrag muss größer als 0 sein.");
+  state.buchungen.push({ soll: s.name, haben: h.name, betrag, text: text.trim() });
+}
+function umsaetze(k) {
+  let soll = 0, haben = 0;
+  for (const b of state.buchungen) { if (b.soll === k.name) soll += b.betrag; if (b.haben === k.name) haben += b.betrag; }
+  return [soll, haben];
+}
+function saldo(k) {
+  const [s, h] = umsaetze(k);
+  return sollMehrung(k) ? k.ab + s - h : k.ab + h - s;
+}
+const nachArt = art => state.konten.filter(k => k.art === art);
+const summe = (art, anfang = false) => nachArt(art).reduce((a, k) => a + (anfang ? k.ab : saldo(k)), 0);
+const ergebnis = () => summe("ertrag") - summe("aufwand");
+
+// ---------- Speicher ----------
+function speichern() { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} }
+function laden() {
+  try { const d = JSON.parse(localStorage.getItem(KEY)); if (d) importiere(d); } catch (e) {}
+}
+function importiere(d) {
+  const alt = state;
+  state = { konten: [], buchungen: [] };
+  try {
+    for (const k of d.konten || []) kontoAnlegen(k.name, k.art, Number(k.ab) || 0);
+    for (const b of d.buchungen || []) buchen(b.soll, b.haben, Number(b.betrag), b.text || "");
+  } catch (e) { state = alt; throw e; }
+}
+
+function beispiel() {
+  state = { konten: [], buchungen: [] };
+  const E = x => x * 100;
+  [["Maschinen", "aktiv", 50000], ["Waren", "aktiv", 12000], ["Forderungen", "aktiv", 8000],
+   ["Bank", "aktiv", 25000], ["Kasse", "aktiv", 3000], ["Eigenkapital", "passiv", 60000],
+   ["Darlehen", "passiv", 30000], ["Verbindlichkeiten", "passiv", 8000],
+   ["Umsatzerlöse", "ertrag", 0], ["Mietaufwand", "aufwand", 0], ["Löhne", "aufwand", 0]]
+    .forEach(([n, a, ab]) => kontoAnlegen(n, a, E(ab)));
+  [["Bank", "Forderungen", 5000, "Kunde zahlt Rechnung"], ["Verbindlichkeiten", "Bank", 4000, "Lieferantenrechnung bezahlt"],
+   ["Bank", "Umsatzerlöse", 15000, "Warenverkauf"], ["Mietaufwand", "Bank", 2000, "Miete Büro"],
+   ["Löhne", "Bank", 6000, "Lohnzahlung"], ["Darlehen", "Bank", 3000, "Tilgung Darlehen"],
+   ["Kasse", "Bank", 1000, "Bargeldabhebung"]]
+    .forEach(([s, h, b, t]) => buchen(s, h, E(b), t));
+}
+
+// ---------- Darstellung ----------
+const $ = id => document.getElementById(id);
+
+function renderBilanz() {
+  const aktiva = nachArt("aktiv").map(k => [k.name, saldo(k)]);
+  const passiva = nachArt("passiv").map(k => [k.name, saldo(k)]);
+  const erg = ergebnis();
+  if (erg !== 0) passiva.push([erg > 0 ? "Jahresüberschuss" : "Jahresfehlbetrag", erg]);
+  if (!aktiva.length && !passiva.length) { $("bilanz").innerHTML = '<p class="empty">Noch keine Bestandskonten angelegt.</p>'; return; }
+  const sa = aktiva.reduce((a, [, v]) => a + v, 0), sp = passiva.reduce((a, [, v]) => a + v, 0);
+  const n = Math.max(aktiva.length, passiva.length);
+  const seite = (titel, posten, s) => `<div><h3>${titel}</h3><table>${
+    Array.from({ length: n }, (_, i) => posten[i]
+      ? `<tr><td>${esc(posten[i][0])}</td><td class="num">${fmt(posten[i][1])}</td></tr>`
+      : `<tr><td>&nbsp;</td><td></td></tr>`).join("")
+  }<tr class="sum"><td>Summe</td><td class="num">${fmt(s)}</td></tr></table></div>`;
+  let status;
+  if (sa === sp) status = '<div class="status ok">✔ Die Bilanz ist ausgeglichen.</div>';
+  else {
+    status = `<div class="status err">✘ Die Bilanz ist nicht ausgeglichen (Differenz ${fmt(sa - sp)}).`;
+    const aa = summe("aktiv", true), ap = summe("passiv", true);
+    if (aa !== ap) status += `<br><small>Ursache: Die Anfangsbestände sind nicht ausgeglichen (Aktiva ${fmt(aa)} / Passiva ${fmt(ap)}).</small>`;
+    status += "</div>";
+  }
+  $("bilanz").innerHTML = `<div class="bilanz">${seite("Aktiva", aktiva, sa)}${seite("Passiva", passiva, sp)}</div>${status}`;
+}
+
+function renderGuV() {
+  const zeilen = art => nachArt(art).map(k => `<tr><td>${esc(k.name)}</td><td class="num">${fmt(saldo(k))}</td></tr>`).join("")
+    || '<tr><td class="empty" colspan="2">keine</td></tr>';
+  const erg = ergebnis();
+  $("guv").innerHTML = `<table>
+    <tr><th>Erträge</th><th></th></tr>${zeilen("ertrag")}
+    <tr><td><b>Summe Erträge</b></td><td class="num"><b>${fmt(summe("ertrag"))}</b></td></tr>
+    <tr><th>Aufwendungen</th><th></th></tr>${zeilen("aufwand")}
+    <tr><td><b>Summe Aufwendungen</b></td><td class="num"><b>${fmt(summe("aufwand"))}</b></td></tr>
+    <tr class="sum"><td>${erg >= 0 ? "Jahresüberschuss" : "Jahresfehlbetrag"}</td><td class="num">${fmt(erg)}</td></tr></table>`;
+}
+
+function renderKonten() {
+  if (!state.konten.length) { $("konten").innerHTML = '<p class="empty">Noch keine Konten angelegt.</p>'; return; }
+  $("konten").innerHTML = `<table><tr><th>Konto</th><th>Art</th><th class="num">Anfang</th><th class="num">Ende</th><th></th></tr>${
+    state.konten.map((k, i) => `<tr><td>${esc(k.name)}</td><td>${ARTEN[k.art]}</td>
+      <td class="num">${istBestand(k) ? fmt(k.ab) : "–"}</td><td class="num">${fmt(saldo(k))}</td>
+      <td><button class="del" title="Konto löschen" data-konto="${i}">✕</button></td></tr>`).join("")}</table>`;
+}
+
+function renderJournal() {
+  if (!state.buchungen.length) { $("journal").innerHTML = '<p class="empty">Noch keine Buchungen erfasst.</p>'; return; }
+  $("journal").innerHTML = `<table><tr><th>Nr</th><th>Soll</th><th></th><th>Haben</th><th class="num">Betrag</th><th>Text</th><th></th></tr>${
+    state.buchungen.map((b, i) => `<tr><td>${i + 1}</td><td>${esc(b.soll)}</td><td>an</td><td>${esc(b.haben)}</td>
+      <td class="num">${fmt(b.betrag)}</td><td>${esc(b.text)}</td>
+      <td><button class="del" title="Buchung löschen" data-buchung="${i}">✕</button></td></tr>`).join("")}</table>`;
+}
+
+function renderTKonten() {
+  if (!state.konten.length) { $("tkonten").innerHTML = '<p class="empty">Noch keine Konten angelegt.</p>'; return; }
+  const z = (l, r, cls = "") => `<div class="${cls}"><span>${esc(l)}</span><span>${r}</span></div>`;
+  $("tkonten").innerHTML = state.konten.map(k => {
+    const soll = [], haben = [];
+    if (istBestand(k)) (k.art === "aktiv" ? soll : haben).push(z("AB", fmt(k.ab)));
+    for (const b of state.buchungen) {
+      if (b.soll === k.name) soll.push(z(b.haben, fmt(b.betrag)));
+      if (b.haben === k.name) haben.push(z(b.soll, fmt(b.betrag)));
+    }
+    const s = saldo(k);
+    const sz = z(istBestand(k) ? "SB" : "Saldo", fmt(Math.abs(s)), "saldo");
+    ((s >= 0) === sollMehrung(k) ? haben : soll).push(sz);
+    return `<div class="tkonto"><h4>${esc(k.name)} <small>(${ARTEN[k.art]})</small></h4>
+      <div class="t"><div>${z("Soll", "", "head")}${soll.join("")}</div><div>${z("Haben", "", "head")}${haben.join("")}</div></div></div>`;
+  }).join("");
+}
+
+function renderSelects() {
+  const opts = state.konten.map(k => `<option value="${esc(k.name)}">${esc(k.name)} (${ARTEN[k.art]})</option>`).join("");
+  for (const name of ["soll", "haben"]) {
+    const sel = $("formBuchung").elements[name], alt = sel.value;
+    sel.innerHTML = opts;
+    if (state.konten.some(k => k.name === alt)) sel.value = alt;
+  }
+}
+
+function render() {
+  renderSelects(); renderBilanz(); renderGuV(); renderKonten(); renderJournal(); renderTKonten();
+  speichern();
+}
+
+function meldung(id, text, ok) { const m = $(id); m.textContent = text; m.className = "msg " + (ok ? "ok" : "err"); }
+
+// ---------- Ereignisse ----------
+const formKonto = $("formKonto");
+formKonto.elements.art.addEventListener("change", e => {
+  const bestand = e.target.value === "aktiv" || e.target.value === "passiv";
+  formKonto.elements.ab.disabled = !bestand;
+  if (!bestand) formKonto.elements.ab.value = "";
+});
+formKonto.addEventListener("submit", e => {
+  e.preventDefault();
+  const f = formKonto.elements;
+  try {
+    const ab = f.ab.value.trim() ? parseBetrag(f.ab.value) : 0;
+    kontoAnlegen(f.name.value, f.art.value, ab);
+    meldung("msgKonto", `Konto „${f.name.value.trim()}“ angelegt.`, true);
+    f.name.value = ""; f.ab.value = ""; f.name.focus();
+    render();
+  } catch (err) { meldung("msgKonto", err.message, false); }
+});
+
+$("formBuchung").addEventListener("submit", e => {
+  e.preventDefault();
+  const f = e.target.elements;
+  try {
+    if (state.konten.length < 2) throw new Error("Bitte zuerst mindestens zwei Konten anlegen.");
+    const betrag = parseBetrag(f.betrag.value);
+    buchen(f.soll.value, f.haben.value, betrag, f.text.value);
+    meldung("msgBuchung", `Gebucht: ${f.soll.value} an ${f.haben.value} ${fmt(betrag)}`, true);
+    f.betrag.value = ""; f.text.value = "";
+    render();
+  } catch (err) { meldung("msgBuchung", err.message, false); }
+});
+
+document.addEventListener("click", e => {
+  const t = e.target;
+  if (t.dataset.buchung !== undefined) {
+    state.buchungen.splice(Number(t.dataset.buchung), 1); render();
+  } else if (t.dataset.konto !== undefined) {
+    const k = state.konten[Number(t.dataset.konto)];
+    if (state.buchungen.some(b => b.soll === k.name || b.haben === k.name)) {
+      alert(`Konto „${k.name}“ wird in Buchungen verwendet und kann nicht gelöscht werden.`); return;
+    }
+    state.konten.splice(Number(t.dataset.konto), 1); render();
+  }
+});
+
+$("btnBeispiel").addEventListener("click", () => {
+  if (state.konten.length && !confirm("Aktuelle Daten durch Beispieldaten ersetzen?")) return;
+  beispiel(); render();
+});
+$("btnReset").addEventListener("click", () => {
+  if (!confirm("Alle Konten und Buchungen löschen?")) return;
+  state = { konten: [], buchungen: [] }; render();
+});
+$("btnExport").addEventListener("click", () => {
+  const blob = new Blob([JSON.stringify(state, null, 2)], { type: "application/json" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob); a.download = "buchhaltung.json"; a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+});
+$("btnImport").addEventListener("click", () => $("fileInput").click());
+$("fileInput").addEventListener("change", async e => {
+  const file = e.target.files[0]; if (!file) return;
+  try {
+    const d = JSON.parse(await file.text());
+    // auch Dateien aus dem Python-Programm (Beträge in Euro als Text) akzeptieren
+    if (d.konten && d.konten.some(k => "anfangsbestand" in k)) {
+      d.konten = d.konten.map(k => ({ name: k.name, art: k.art, ab: parseBetrag(k.anfangsbestand) }));
+      d.buchungen = (d.buchungen || []).map(b => ({ ...b, betrag: parseBetrag(b.betrag) }));
+    }
+    importiere(d); render();
+  } catch (err) { alert("Datei konnte nicht geladen werden: " + err.message); }
+  e.target.value = "";
+});
+
+laden();
+render();
+</script>
+</body>
+</html>
