@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Highway Rush</title>
+<link href="https://fonts.googleapis.com/css2?family=Bungee&family=Rajdhani:wght@500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared.css">
+<style>
+  canvas { display: block; width: min(420px, calc(100vw - 60px)); aspect-ratio: 2 / 3; border-radius: 10px; touch-action: none; cursor: pointer; }
+  .stars { font-size: 22px; letter-spacing: 2px; }
+  .stars .on { color: #fff; text-shadow: 0 0 8px var(--cyan); }
+  .stars .off { color: rgba(255,255,255,.18); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="title"><h1>HIGHWAY RUSH</h1></div>
+  <div class="hud">
+    <div class="stat"><span class="k">Beute</span><span class="v cash" id="cash">$0</span></div>
+    <div class="stat"><span class="k">Tempo</span><span class="v" id="speed">0 km/h</span></div>
+    <div class="stat"><span class="k">Fahndung</span><span class="v stars" id="stars"></span></div>
+    <div class="stat"><span class="k">Rekord</span><span class="v" id="best">—</span></div>
+  </div>
+  <div class="panel" id="frame"><canvas id="c" width="400" height="600"></canvas></div>
+  <p class="help"><b>← →</b> / <b>A D</b> oder <b>wischen/tippen</b> links/rechts zum Lenken · 💰 einsammeln · Nitro ⚡ macht dich kurz unverwundbar · Leertaste = Pause</p>
+</div>
+<script src="shared.js"></script>
+<script>
+NH.init();
+const cv = document.getElementById('c'), g = cv.getContext('2d');
+const W = 400, H = 600, LANES = 4, ROAD_L = 50, ROAD_W = 300, LANE_W = ROAD_W / LANES;
+const laneX = l => ROAD_L + LANE_W * l + LANE_W / 2;
+const COLORS = ['#ff2e93', '#2ef2ff', '#ffc23d', '#7b2cff', '#6dff9a', '#ff6a3d', '#ffffff'];
+let st, keys = {}, last = 0, raf;
+
+function reset() {
+  st = { x: laneX(1.5), tx: laneX(1.5), speed: 260, dist: 0, cash: 0, items: [], spawn: 0, line: 0,
+         alive: true, started: false, paused: false, nitro: 0, palms: [0, 150, 300, 450].map(y => ({ y })) };
+  const b = NH.best('highway'); document.getElementById('best').textContent = b === null ? '—' : NH.money(b);
+  hud(); draw();
+}
+
+function spawn() {
+  const lane = Math.floor(Math.random() * LANES), r = Math.random();
+  const busy = st.items.some(it => it.lane === lane && it.y < 120);
+  if (busy) return;
+  if (r < .68) st.items.push({ t: 'car', lane, x: laneX(lane), y: -90, v: 60 + Math.random() * 120, col: COLORS[Math.floor(Math.random() * COLORS.length)], truck: Math.random() < .2 });
+  else if (r < .95) st.items.push({ t: 'cash', lane, x: laneX(lane), y: -40 });
+  else st.items.push({ t: 'nitro', lane, x: laneX(lane), y: -40 });
+}
+
+function step(dt) {
+  const s = st;
+  s.speed = Math.min(900, s.speed + dt * 9);
+  const v = s.speed * (s.nitro > 0 ? 1.5 : 1);
+  s.dist += v * dt; s.cash += v * dt * .05;
+  s.nitro = Math.max(0, s.nitro - dt);
+  // Steuerung
+  const dir = (keys.ArrowRight || keys.d ? 1 : 0) - (keys.ArrowLeft || keys.a ? 1 : 0);
+  if (dir) s.tx = s.x + dir * 40;
+  s.tx = Math.max(ROAD_L + 22, Math.min(ROAD_L + ROAD_W - 22, s.tx));
+  s.x += (s.tx - s.x) * Math.min(1, dt * 12);
+  s.line = (s.line + v * dt) % 60;
+  s.palms.forEach(p => { p.y += v * dt; if (p.y > H + 60) p.y -= 600; });
+  s.spawn -= dt * v / 260;
+  if (s.spawn <= 0) { spawn(); s.spawn = Math.max(.28, .9 - s.speed / 1400) * (0.7 + Math.random() * .6); }
+  const px = s.x, py = H - 100;
+  for (const it of s.items) {
+    it.y += (it.t === 'car' ? v - it.v : v) * dt;
+    const hw = it.t === 'car' ? 20 : 16, hh = it.t === 'car' ? (it.truck ? 50 : 34) : 16;
+    if (Math.abs(it.x - px) < hw + 16 && Math.abs(it.y - py) < hh + 30) {
+      if (it.t === 'cash') { it.dead = true; s.cash += 500; NH.beep(880, .08, 'triangle', .06); NH.beep(1320, .1, 'triangle', .05); }
+      else if (it.t === 'nitro') { it.dead = true; s.nitro = 3; NH.beep(300, .4, 'sawtooth', .05, 900); }
+      else if (s.nitro > 0) { it.dead = true; s.cash += 250; NH.noise(.25, 1500, .3); }
+      else { crash(); return; }
+    }
+  }
+  s.items = s.items.filter(it => !it.dead && it.y < H + 120);
+}
+
+function crash() {
+  st.alive = false; NH.noise(1, 600, .6); NH.flash(); NH.shake(document.getElementById('frame')); NH.vibrate([120, 60, 200]);
+  const total = Math.round(st.cash);
+  NH.bank.add(total);
+  const rec = NH.best('highway', total);
+  hud(); draw();
+  setTimeout(() => NH.overlay('lose', 'TOTALSCHADEN', `${Math.round(st.dist / 10)} m gefahren · Beute ${NH.money(total)} wandert in die Bank${rec ? ' · NEUER REKORD!' : ''}`, reset), 700);
+}
+
+function car(x, y, col, w = 36, h = 64, player = false) {
+  g.save(); g.translate(x, y);
+  g.shadowColor = col; g.shadowBlur = 18;
+  g.fillStyle = col; roundRect(-w / 2, -h / 2, w, h, 9); g.fill();
+  g.shadowBlur = 0;
+  g.fillStyle = 'rgba(10,2,24,.85)'; roundRect(-w / 2 + 5, -h / 2 + 12, w - 10, h * .22, 4); g.fill();
+  roundRect(-w / 2 + 5, h / 2 - h * .3, w - 10, h * .16, 4); g.fill();
+  g.fillStyle = player ? '#fff7b0' : '#ff3b3b';
+  const ly = player ? -h / 2 + 2 : h / 2 - 6;
+  g.fillRect(-w / 2 + 4, ly, 7, 4); g.fillRect(w / 2 - 11, ly, 7, 4);
+  g.restore();
+}
+function roundRect(x, y, w, h, r) { g.beginPath(); g.roundRect ? g.roundRect(x, y, w, h, r) : g.rect(x, y, w, h); }
+function palm(x, y, flip) {
+  g.save(); g.translate(x, y); g.scale(flip ? -1 : 1, 1);
+  g.strokeStyle = '#0a0218'; g.lineWidth = 5; g.beginPath(); g.moveTo(0, 40); g.quadraticCurveTo(6, 0, 0, -30); g.stroke();
+  g.fillStyle = '#0a0218';
+  for (let a = -2.6; a <= -.4; a += .45) { g.beginPath(); g.ellipse(Math.cos(a) * 18, -30 + Math.sin(a) * 10, 20, 5, a, 0, Math.PI * 2); g.fill(); }
+  g.restore();
+}
+
+function draw() {
+  const s = st;
+  const sky = g.createLinearGradient(0, 0, 0, H); sky.addColorStop(0, '#2a0f4f'); sky.addColorStop(1, '#12052a');
+  g.fillStyle = sky; g.fillRect(0, 0, W, H);
+  // Seitenstreifen
+  g.fillStyle = '#ff6a3d22'; g.fillRect(0, 0, ROAD_L, H); g.fillRect(ROAD_L + ROAD_W, 0, W, H);
+  s.palms.forEach((p, i) => { palm(22, p.y, false); palm(W - 22, p.y + 75, true); });
+  // Straße
+  g.fillStyle = '#1a0836'; g.fillRect(ROAD_L, 0, ROAD_W, H);
+  g.shadowBlur = 12; g.shadowColor = '#ff2e93'; g.fillStyle = '#ff2e93';
+  g.fillRect(ROAD_L - 3, 0, 4, H); g.fillRect(ROAD_L + ROAD_W - 1, 0, 4, H);
+  g.shadowColor = '#2ef2ff'; g.fillStyle = '#2ef2ff';
+  for (let l = 1; l < LANES; l++) for (let y = -60 + s.line; y < H; y += 60) g.fillRect(ROAD_L + LANE_W * l - 2, y, 4, 30);
+  g.shadowBlur = 0;
+  // Objekte
+  for (const it of s.items) {
+    if (it.t === 'car') car(it.x, it.y, it.col, it.truck ? 40 : 36, it.truck ? 100 : 64);
+    else {
+      g.font = '28px serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+      g.shadowColor = it.t === 'cash' ? '#6dff9a' : '#2ef2ff'; g.shadowBlur = 16;
+      g.fillText(it.t === 'cash' ? '💰' : '⚡', it.x, it.y); g.shadowBlur = 0;
+    }
+  }
+  // Spieler + Blaulicht
+  const py = H - 100;
+  if (s.nitro > 0) { g.fillStyle = `rgba(46,242,255,${.25 + .2 * Math.sin(performance.now() / 60)})`; g.beginPath(); g.arc(s.x, py, 48, 0, 7); g.fill(); }
+  car(s.x, py, '#ffffff', 36, 64, true);
+  const stars = wanted();
+  if (stars >= 2 && s.alive) {
+    const on = Math.floor(performance.now() / 150) % 2;
+    const gl = g.createRadialGradient(W / 2, H + 20, 10, W / 2, H + 20, 200);
+    gl.addColorStop(0, on ? 'rgba(255,40,60,.45)' : 'rgba(40,90,255,.45)'); gl.addColorStop(1, 'transparent');
+    g.fillStyle = gl; g.fillRect(0, H - 220, W, 220);
+  }
+  if (!s.started) {
+    g.fillStyle = 'rgba(18,5,42,.7)'; g.fillRect(0, 0, W, H);
+    g.fillStyle = '#fff'; g.textAlign = 'center'; g.font = '26px Bungee, sans-serif';
+    g.shadowColor = '#ff2e93'; g.shadowBlur = 14; g.fillText('TIPPEN ZUM STARTEN', W / 2, H / 2); g.shadowBlur = 0;
+  } else if (s.paused) {
+    g.fillStyle = 'rgba(18,5,42,.6)'; g.fillRect(0, 0, W, H);
+    g.fillStyle = '#fff'; g.textAlign = 'center'; g.font = '30px Bungee, sans-serif'; g.fillText('PAUSE', W / 2, H / 2);
+  }
+}
+
+const wanted = () => Math.min(5, Math.floor((st.speed - 260) / 120));
+let lastStars = 0;
+function hud() {
+  document.getElementById('cash').textContent = NH.money(st.cash);
+  document.getElementById('speed').textContent = Math.round(st.speed * (st.nitro > 0 ? 1.5 : 1) / 3) + ' km/h';
+  const w = wanted();
+  if (w > lastStars && w > 0) NH.beep(1200, .25, 'sawtooth', .03, -600);
+  lastStars = w;
+  document.getElementById('stars').innerHTML = [0, 1, 2, 3, 4].map(i => `<span class="${i < w ? 'on' : 'off'}">★</span>`).join('');
+}
+
+function loop(t) {
+  const dt = Math.min(.05, (t - last) / 1000); last = t;
+  if (st.started && st.alive && !st.paused) { step(dt); hud(); }
+  if (st.alive) draw();
+  raf = requestAnimationFrame(loop);
+}
+
+function start() { if (!st.started && st.alive) { st.started = true; NH.beep(440, .1); NH.beep(880, .2, 'square', .05); } }
+document.addEventListener('keydown', e => {
+  if (['ArrowLeft', 'ArrowRight', ' '].includes(e.key)) e.preventDefault();
+  keys[e.key.length === 1 ? e.key.toLowerCase() : e.key] = true;
+  if (e.key === ' ' && st.started && st.alive) st.paused = !st.paused; else start();
+});
+document.addEventListener('keyup', e => { keys[e.key.length === 1 ? e.key.toLowerCase() : e.key] = false; });
+function pointerX(e) { const r = cv.getBoundingClientRect(); return (e.clientX - r.left) / r.width * W; }
+let dragging = false;
+cv.addEventListener('pointerdown', e => { start(); dragging = true; st.tx = pointerX(e); cv.setPointerCapture(e.pointerId); });
+cv.addEventListener('pointermove', e => { if (dragging) st.tx = pointerX(e); });
+cv.addEventListener('pointerup', () => dragging = false);
+document.addEventListener('visibilitychange', () => { if (document.hidden && st.started && st.alive) st.paused = true; });
+
+reset();
+requestAnimationFrame(t => { last = t; loop(t); });
+</script>
+</body>
+</html>

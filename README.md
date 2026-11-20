@@ -33,3 +33,20 @@ Speichern/Laden als JSON, Beispieldaten (Menüpunkt 10).
 `bilanz.html` einfach im Browser öffnen – gleiche Funktionen mit grafischer
 Oberfläche, Daten bleiben im Browser gespeichert. JSON-Dateien des
 Python-Programms können dort ebenfalls geladen werden.
+
+## Neon Heat Arcade
+
+Sammlung von Browser-Minispielen im Neon-Sonnenuntergangs-Look (Ordner
+`neon-heat/`). Einfach `neon-heat/index.html` öffnen – keine Installation nötig.
+
+| Spiel | Datei | Prinzip |
+|---|---|---|
+| Highway Rush | `highway.html` | Verkehr ausweichen, Geldsäcke sammeln |
+| Safe Cracker | `safecracker.html` | Timing: Zeiger in der grünen Zone stoppen |
+| Grid Hacker | `hacker.html` | Code-Sequenzen merken und nachtippen |
+| Lucky Palms | `casino.html` | Spielautomat mit der gemeinsamen Bank |
+| Neon Mines | `minesweeper.html` | Klassisches Minesweeper |
+| Getaway | `getaway.html` | Labyrinth-Flucht vor der Streife |
+
+Alle Gewinne landen in einer gemeinsamen Bank (im Browser gespeichert), die im
+Hub einen Rang freischaltet.

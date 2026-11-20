@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Grid Hacker</title>
+<link href="https://fonts.googleapis.com/css2?family=Bungee&family=Rajdhani:wght@500;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared.css">
+<style>
+  .term { width: min(460px, calc(100vw - 60px)); font-family: "Share Tech Mono", monospace; color: var(--green); font-size: 15px;
+    background: #050010; border-radius: 8px; padding: 10px 12px; height: 92px; overflow: hidden; border: 1px solid rgba(109,255,154,.4);
+    box-shadow: inset 0 0 20px rgba(43,255,106,.15); }
+  .term div { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .grid { display: grid; grid-template-columns: repeat(var(--n), 1fr); gap: 10px; width: min(460px, calc(100vw - 60px)); margin-top: 14px; }
+  .pad { aspect-ratio: 1; border-radius: 12px; cursor: pointer; border: 2px solid var(--pc); background: color-mix(in srgb, var(--pc) 12%, #12052a);
+    font-family: "Share Tech Mono", monospace; font-size: 22px; color: var(--pc); display: grid; place-items: center;
+    transition: background .1s, box-shadow .1s, transform .08s; user-select: none; touch-action: manipulation; }
+  .pad.lit { background: var(--pc); color: #12052a; box-shadow: 0 0 30px var(--pc), 0 0 60px var(--pc); transform: scale(1.04); }
+  .pad.bad { background: #ff3b3b; border-color: #ff3b3b; box-shadow: 0 0 30px #f00; }
+  .grid.locked .pad { cursor: default; }
+  .timerbar { width: min(460px, calc(100vw - 60px)); height: 8px; border-radius: 4px; background: rgba(255,255,255,.1); margin-top: 12px; overflow: hidden; }
+  .timerbar i { display: block; height: 100%; background: linear-gradient(90deg, var(--green), var(--sun), var(--pink)); width: 100%; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="title"><h1>GRID HACKER</h1></div>
+  <div class="hud">
+    <div class="stat"><span class="k">Level</span><span class="v" id="lvl">1</span></div>
+    <div class="stat"><span class="k">Beute</span><span class="v cash" id="cash">$0</span></div>
+    <div class="stat"><span class="k">Firewall</span><span class="v" id="fw">3</span></div>
+    <div class="stat"><span class="k">Rekord</span><span class="v" id="best">—</span></div>
+  </div>
+  <div class="panel" style="display:flex;flex-direction:column;align-items:center" id="frame">
+    <div class="term" id="term"></div>
+    <div class="timerbar"><i id="bar"></i></div>
+    <div class="grid locked" id="grid"></div>
+    <div class="row" style="margin-top:14px"><button class="btn hot big" id="go">HACK STARTEN</button></div>
+  </div>
+  <p class="help">Schau dir die aufleuchtende <b>Code-Sequenz</b> an und tippe sie in derselben Reihenfolge nach (auch Tasten <b>1–9</b>). Ab Level 4 wird das Gitter größer, ab Level 7 musst du unter <b>Zeitdruck</b> eingeben. Bei 3 Fehlern schlägt die Firewall zu.</p>
+</div>
+<script src="shared.js"></script>
+<script>
+NH.init();
+const COLS = ['#ff2e93', '#2ef2ff', '#ffc23d', '#7b2cff', '#6dff9a', '#ff6a3d', '#ffffff', '#ff9ad0', '#9ae6ff'];
+const NOTES = [262, 294, 330, 392, 440, 523, 587, 659, 784];
+const gridEl = document.getElementById('grid'), term = document.getElementById('term'), bar = document.getElementById('bar');
+let s, timerId = null;
+
+function log(t, col) {
+  const d = document.createElement('div'); d.textContent = '> ' + t; if (col) d.style.color = col;
+  term.appendChild(d); while (term.children.length > 4) term.firstChild.remove();
+}
+function newRun() {
+  s = { lvl: 1, cash: 0, fw: 3, seq: [], idx: 0, input: false, n: 3 };
+  term.innerHTML = ''; log('Verbinde mit CITYNET-Mainframe...'); log('Bereit. Drück HACK STARTEN.', '#ffc23d');
+  buildGrid(); hud();
+  document.getElementById('go').disabled = false; document.getElementById('go').textContent = 'HACK STARTEN';
+}
+function buildGrid() {
+  const n = s.lvl >= 4 ? 3 : 2; const size = n * n;
+  gridEl.style.setProperty('--n', n);
+  s.n = size;
+  if (gridEl.children.length === size) return;
+  s.seq = [];
+  gridEl.innerHTML = '';
+  for (let i = 0; i < size; i++) {
+    const p = document.createElement('div'); p.className = 'pad'; p.dataset.i = i;
+    p.style.setProperty('--pc', COLS[i]); p.textContent = (i + 1);
+    gridEl.appendChild(p);
+  }
+}
+const pad = i => gridEl.children[i];
+function lightUp(i, ms = 320) {
+  const p = pad(i); p.classList.add('lit'); NH.beep(NOTES[i], ms / 1000, 'square', .05);
+  setTimeout(() => p.classList.remove('lit'), ms);
+}
+async function playSeq() {
+  s.input = false; gridEl.classList.add('locked'); stopTimer();
+  log(`Level ${s.lvl}: Fange Sequenz ab (${s.seq.length} Codes)...`);
+  const gap = Math.max(260, 620 - s.lvl * 30);
+  await wait(500);
+  for (const i of s.seq) { lightUp(i, gap * .7); await wait(gap); }
+  s.idx = 0; s.input = true; gridEl.classList.remove('locked');
+  log('Eingabe jetzt!', '#2ef2ff');
+  if (s.lvl >= 7) startTimer(1500 + s.seq.length * 650);
+}
+const wait = ms => new Promise(r => setTimeout(r, ms));
+function nextLevel() {
+  buildGrid();
+  if (s.seq.length === 0) for (let k = 0; k < 2; k++) s.seq.push(Math.floor(Math.random() * s.n));
+  s.seq.push(Math.floor(Math.random() * s.n));
+  hud(); playSeq();
+}
+function press(i) {
+  if (!s.input) return;
+  if (i === s.seq[s.idx]) {
+    lightUp(i, 180); s.idx++;
+    if (s.idx === s.seq.length) {
+      s.input = false; stopTimer();
+      const loot = 250 * s.lvl * s.seq.length;
+      s.cash += loot; log(`ZUGRIFF GEWÄHRT +${NH.money(loot)}`, '#6dff9a'); NH.jingle();
+      s.lvl++; if (s.lvl === 4) { s.seq = []; log('Neues Sicherheitsgitter erkannt: 3×3', '#ff2e93'); }
+      if (s.lvl === 7) log('Warnung: Eingabe-Timeout aktiv!', '#ff2e93');
+      setTimeout(nextLevel, 900);
+    }
+  } else fail(i);
+}
+function fail(i) {
+  s.input = false; stopTimer(); s.fw--;
+  if (i !== undefined) { const p = pad(i); p.classList.add('bad'); setTimeout(() => p.classList.remove('bad'), 500); }
+  NH.beep(110, .4, 'sawtooth', .07); NH.shake(document.getElementById('frame')); NH.vibrate(150);
+  log(i === undefined ? 'TIMEOUT! Firewall schlägt Alarm.' : 'FALSCHER CODE! Firewall schlägt Alarm.', '#ff3b3b');
+  hud();
+  if (s.fw <= 0) return gameOver();
+  setTimeout(playSeq, 1100);
+}
+function gameOver() {
+  const reached = s.lvl - 1;
+  NH.bank.add(s.cash); NH.sad();
+  const rec = NH.best('hacker', reached);
+  log('VERBINDUNG GETRENNT.', '#ff3b3b');
+  setTimeout(() => NH.overlay('lose', 'AUFGEFLOGEN', `${reached} Firewall-Level geknackt · ${NH.money(s.cash)} in die Bank${rec && reached ? ' · NEUER REKORD!' : ''}`, newRun), 700);
+}
+function startTimer(ms) {
+  const t0 = performance.now();
+  bar.style.width = '100%';
+  timerId = setInterval(() => {
+    const left = 1 - (performance.now() - t0) / ms; bar.style.width = Math.max(0, left * 100) + '%';
+    if (left <= 0) fail();
+  }, 50);
+}
+function stopTimer() { clearInterval(timerId); timerId = null; bar.style.width = '100%'; }
+function hud() {
+  document.getElementById('lvl').textContent = s.lvl;
+  document.getElementById('cash').textContent = NH.money(s.cash);
+  document.getElementById('fw').textContent = '🛡️'.repeat(s.fw) || '💀';
+  const b = NH.best('hacker'); document.getElementById('best').textContent = b === null ? '—' : 'Lvl ' + b;
+}
+gridEl.addEventListener('pointerdown', e => { const p = e.target.closest('.pad'); if (p) press(+p.dataset.i); });
+document.addEventListener('keydown', e => { const k = +e.key; if (k >= 1 && k <= s.n) press(k - 1); });
+document.getElementById('go').onclick = e => { e.currentTarget.disabled = true; e.currentTarget.textContent = 'HACK LÄUFT...'; nextLevel(); };
+newRun();
+</script>
+</body>
+</html>

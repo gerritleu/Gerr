@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Neon Heat Arcade</title>
+<link href="https://fonts.googleapis.com/css2?family=Bungee&family=Rajdhani:wght@500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared.css">
+<style>
+  .games { width: 100%; display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; }
+  .card { position: relative; display: flex; flex-direction: column; gap: 6px; text-decoration: none; color: var(--text);
+    padding: 18px; border-radius: 16px; overflow: hidden; min-height: 190px;
+    background: linear-gradient(160deg, rgba(61,23,114,.92), rgba(18,5,42,.92));
+    border: 2px solid var(--c, var(--pink)); box-shadow: 0 0 16px color-mix(in srgb, var(--c, var(--pink)) 55%, transparent);
+    transition: transform .15s, box-shadow .2s; }
+  .card:hover { transform: translateY(-4px) rotate(-.5deg); box-shadow: 0 0 34px var(--c, var(--pink)); }
+  .card .ico { font-size: 46px; filter: drop-shadow(0 0 10px var(--c)); }
+  .card h3 { margin: 0; font-family: "Bungee", sans-serif; font-size: 22px; color: var(--c); text-shadow: 2px 2px 0 #000, 0 0 10px var(--c); }
+  .card p { margin: 0; font-size: 16px; opacity: .9; }
+  .card .best { margin-top: auto; font-size: 13px; letter-spacing: 2px; color: var(--sun); text-transform: uppercase; }
+  .card .tag { position: absolute; top: 14px; right: -34px; transform: rotate(35deg); background: var(--c); color: #12052a;
+    font-family: "Bungee", sans-serif; font-size: 11px; padding: 3px 40px; }
+  .ticker { width: 100%; overflow: hidden; white-space: nowrap; border-radius: 8px; background: rgba(0,0,0,.55);
+    border: 1px solid rgba(255,194,61,.5); font-weight: 700; letter-spacing: 1px; }
+  .ticker span { display: inline-block; padding: 6px 0 6px 100%; animation: tick 30s linear infinite; color: var(--sun); }
+  @keyframes tick { to { transform: translateX(-100%); } }
+  .rank { font-family: "Bungee", sans-serif; font-size: 18px; color: var(--cyan); text-shadow: 0 0 8px var(--cyan); text-align: center; }
+  .reset { background: none; border: 0; color: rgba(255,255,255,.5); cursor: pointer; font: inherit; text-decoration: underline; }
+  @media (prefers-reduced-motion: reduce) { .ticker span { animation: none; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="title"><h1>NEON HEAT</h1><br><span class="sub">ARCADE</span></div>
+  <div class="ticker"><span>📻 SUNSHINE FM: Willkommen in der Stadt der Sünden und Sonnenuntergänge · Jedes Spiel füllt deine gemeinsame Bank · Im Casino kannst du sie verdoppeln – oder verzocken · Steig vom Kleinganoven zur Legende auf ★</span></div>
+  <div class="rank" id="rank"></div>
+
+  <div class="games">
+    <a class="card" href="highway.html" style="--c: var(--pink)"><span class="tag">ACTION</span>
+      <span class="ico">🏎️</span><h3>Highway Rush</h3>
+      <p>Rase über den Ocean Highway, weiche dem Verkehr aus und sammle Geldsäcke ein.</p>
+      <span class="best" data-best="highway">—</span></a>
+
+    <a class="card" href="safecracker.html" style="--c: var(--sun)"><span class="tag">TIMING</span>
+      <span class="ico">🔐</span><h3>Safe Cracker</h3>
+      <p>Knack den Tresor der Yacht-Bank – stopp das Rad genau in der grünen Zone.</p>
+      <span class="best" data-best="safe">—</span></a>
+
+    <a class="card" href="hacker.html" style="--c: var(--cyan)"><span class="tag">MEMORY</span>
+      <span class="ico">💻</span><h3>Grid Hacker</h3>
+      <p>Merk dir die Code-Sequenz und knack die Firewall der Stadtverwaltung.</p>
+      <span class="best" data-best="hacker">—</span></a>
+
+    <a class="card" href="casino.html" style="--c: var(--green)"><span class="tag">GLÜCK</span>
+      <span class="ico">🎰</span><h3>Lucky Palms</h3>
+      <p>Der einarmige Bandit im Casino am Strand. Setz deine Bank aufs Spiel.</p>
+      <span class="best" data-best="casino">—</span></a>
+
+    <a class="card" href="minesweeper.html" style="--c: var(--violet)"><span class="tag">LOGIK</span>
+      <span class="ico">💣</span><h3>Neon Mines</h3>
+      <p>Räum die versteckten Sprengsätze unter dem Ocean Drive. Klassisches Minesweeper.</p>
+      <span class="best" data-best="mines">—</span></a>
+
+    <a class="card" href="getaway.html" style="--c: var(--hot)"><span class="tag">REFLEX</span>
+      <span class="ico">🚨</span><h3>Getaway</h3>
+      <p>Flucht durch die Gassen: Finde den Weg durchs Labyrinth, bevor die Streife dich erwischt.</p>
+      <span class="best" data-best="getaway">—</span></a>
+  </div>
+
+  <p class="help">Alle Gewinne landen in deiner <b>Bank</b> (oben rechts) und bleiben im Browser gespeichert. <button class="reset" id="reset">Bank zurücksetzen</button></p>
+</div>
+
+<script src="shared.js"></script>
+<script>
+  NH.init({ hub: true });
+  const fmt = {
+    highway: v => 'Rekord: ' + NH.money(v),
+    safe: v => 'Rekord: ' + v + ' Tresore',
+    hacker: v => 'Rekord: Level ' + v,
+    casino: v => 'Größter Gewinn: ' + NH.money(v),
+    mines: v => 'Rekord: ' + NH.money(v),
+    getaway: v => 'Rekord: ' + v + ' Fluchten',
+  };
+  document.querySelectorAll('[data-best]').forEach(el => {
+    const k = el.dataset.best, v = NH.best(k);
+    el.textContent = v === null ? 'Noch nicht gespielt' : fmt[k](v);
+  });
+  const ranks = [[0, 'Kleinganove'], [5000, 'Straßendealer'], [25000, 'Hustler'], [100000, 'Gangboss'], [500000, 'Kingpin'], [2000000, 'Legende der Küste']];
+  function renderRank() {
+    const b = NH.bank.get();
+    let r = ranks[0][1], next = null;
+    for (let i = 0; i < ranks.length; i++) { if (b >= ranks[i][0]) { r = ranks[i][1]; next = ranks[i + 1]; } }
+    document.getElementById('rank').textContent = 'Rang: ' + r + (next ? ` · nächster Rang bei ${NH.money(next[0])}` : ' · ganz oben!');
+  }
+  renderRank();
+  document.getElementById('reset').onclick = () => { if (confirm('Bank wirklich auf $0 setzen?')) { NH.bank.set(0); renderRank(); } };
+</script>
+</body>
+</html>

@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Safe Cracker</title>
+<link href="https://fonts.googleapis.com/css2?family=Bungee&family=Rajdhani:wght@500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared.css">
+<style>
+  .dial { width: min(340px, calc(100vw - 80px)); aspect-ratio: 1; display: block; cursor: pointer; touch-action: manipulation; }
+  .pins { display: flex; gap: 10px; justify-content: center; }
+  .pin { width: 22px; height: 38px; border-radius: 6px; border: 2px solid var(--sun); background: rgba(255,194,61,.1); transition: background .2s, box-shadow .2s; }
+  .pin.done { background: var(--green); border-color: var(--green); box-shadow: 0 0 12px var(--green); }
+  .lives { font-size: 22px; letter-spacing: 3px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="title"><h1>SAFE CRACKER</h1></div>
+  <div class="hud">
+    <div class="stat"><span class="k">Tresor</span><span class="v" id="vault">1</span></div>
+    <div class="stat"><span class="k">Beute</span><span class="v cash" id="cash">$0</span></div>
+    <div class="stat"><span class="k">Alarm</span><span class="v lives" id="lives"></span></div>
+    <div class="stat"><span class="k">Rekord</span><span class="v" id="best">—</span></div>
+  </div>
+  <div class="panel" id="frame" style="display:flex;flex-direction:column;gap:14px;align-items:center">
+    <div class="pins" id="pins"></div>
+    <canvas class="dial" id="dial" width="680" height="680"></canvas>
+    <button class="btn hot big" id="crack">KNACKEN</button>
+  </div>
+  <p class="help">Der Zeiger dreht sich. Drück <b>Leertaste</b>, <b>tippe aufs Rad</b> oder <b>KNACKEN</b>, wenn er in der <b>grünen Zone</b> ist. Jeder Tresor hat mehr Stifte, schnellere Räder und kleinere Zonen. Drei Fehler lösen den Alarm aus.</p>
+</div>
+<script src="shared.js"></script>
+<script>
+NH.init();
+const cv = document.getElementById('dial'), g = cv.getContext('2d'), S = 680, C = S / 2;
+let s, last;
+
+function newRun() { s = { vault: 1, cash: 0, lives: 3, over: false }; newVault(); }
+function newVault() {
+  s.pins = 2 + s.vault; s.done = 0; s.ang = 0;
+  s.dir = 1; s.spd = 1.6 + s.vault * .35; s.zoneW = Math.max(.22, .62 - s.vault * .06);
+  placeZone(); s.flash = 0; s.flashCol = '';
+  renderPins(); hud();
+}
+function placeZone() {
+  let z; do { z = Math.random() * Math.PI * 2; } while (Math.abs(angDiff(z, s.ang)) < 1.2);
+  s.zone = z;
+}
+const angDiff = (a, b) => { let d = (a - b) % (Math.PI * 2); if (d > Math.PI) d -= Math.PI * 2; if (d < -Math.PI) d += Math.PI * 2; return d; };
+
+function crack() {
+  if (s.over) return;
+  if (Math.abs(angDiff(s.ang, s.zone)) <= s.zoneW / 2) {
+    s.done++; s.dir *= -1; s.spd *= 1.06; s.flash = .3; s.flashCol = '#6dff9a';
+    NH.beep(600 + s.done * 120, .1, 'triangle', .07); NH.vibrate(15);
+    renderPins();
+    if (s.done >= s.pins) return vaultOpen();
+    placeZone();
+  } else {
+    s.lives--; s.flash = .4; s.flashCol = '#ff3b3b';
+    NH.beep(120, .3, 'sawtooth', .07); NH.shake(document.getElementById('frame')); NH.vibrate(150);
+    if (s.lives <= 0) return busted();
+  }
+  hud();
+}
+function vaultOpen() {
+  const loot = 1000 * s.vault * s.vault + 500 * s.lives;
+  s.cash += loot; NH.jingle(); NH.flash();
+  hud();
+  s.over = true;
+  setTimeout(() => { s.over = false; s.vault++; newVault(); }, 900);
+}
+function busted() {
+  s.over = true; NH.sad();
+  const cleared = s.vault - 1;
+  NH.bank.add(s.cash);
+  const rec = NH.best('safe', cleared);
+  hud();
+  setTimeout(() => NH.overlay('lose', 'ALARM!', `${cleared} Tresor${cleared === 1 ? '' : 'e'} geknackt · ${NH.money(s.cash)} in die Bank${rec && cleared ? ' · NEUER REKORD!' : ''}`, newRun), 600);
+}
+
+function renderPins() { document.getElementById('pins').innerHTML = Array.from({ length: s.pins }, (_, i) => `<div class="pin ${i < s.done ? 'done' : ''}"></div>`).join(''); }
+function hud() {
+  document.getElementById('vault').textContent = s.vault;
+  document.getElementById('cash').textContent = NH.money(s.cash);
+  document.getElementById('lives').textContent = '🚨'.repeat(3 - s.lives) + '⚪'.repeat(s.lives);
+  const b = NH.best('safe'); document.getElementById('best').textContent = b === null ? '—' : b;
+}
+
+function draw() {
+  g.clearRect(0, 0, S, S);
+  // Gehäuse
+  const rg = g.createRadialGradient(C, C, 40, C, C, 320); rg.addColorStop(0, '#3d1772'); rg.addColorStop(1, '#12052a');
+  g.fillStyle = rg; g.beginPath(); g.arc(C, C, 320, 0, 7); g.fill();
+  g.lineWidth = 10; g.strokeStyle = '#ffc23d'; g.shadowColor = '#ffc23d'; g.shadowBlur = 20; g.stroke(); g.shadowBlur = 0;
+  // Skala
+  for (let i = 0; i < 60; i++) {
+    const a = i / 60 * Math.PI * 2 - Math.PI / 2, L = i % 5 ? 14 : 30;
+    g.strokeStyle = i % 5 ? 'rgba(255,255,255,.35)' : '#2ef2ff'; g.lineWidth = i % 5 ? 3 : 5;
+    g.beginPath(); g.moveTo(C + Math.cos(a) * 290, C + Math.sin(a) * 290); g.lineTo(C + Math.cos(a) * (290 - L), C + Math.sin(a) * (290 - L)); g.stroke();
+  }
+  // Zone
+  g.lineWidth = 46; g.strokeStyle = '#6dff9a'; g.shadowColor = '#2bff6a'; g.shadowBlur = 30;
+  g.beginPath(); g.arc(C, C, 225, s.zone - s.zoneW / 2 - Math.PI / 2, s.zone + s.zoneW / 2 - Math.PI / 2); g.stroke(); g.shadowBlur = 0;
+  // Innen
+  g.fillStyle = '#1a0836'; g.beginPath(); g.arc(C, C, 175, 0, 7); g.fill();
+  g.strokeStyle = '#ff2e93'; g.lineWidth = 6; g.shadowColor = '#ff2e93'; g.shadowBlur = 16; g.stroke(); g.shadowBlur = 0;
+  // Zeiger
+  const a = s.ang - Math.PI / 2;
+  g.strokeStyle = '#fff'; g.lineWidth = 12; g.lineCap = 'round'; g.shadowColor = '#fff'; g.shadowBlur = 20;
+  g.beginPath(); g.moveTo(C, C); g.lineTo(C + Math.cos(a) * 270, C + Math.sin(a) * 270); g.stroke(); g.shadowBlur = 0;
+  g.fillStyle = '#ffc23d'; g.beginPath(); g.arc(C, C, 34, 0, 7); g.fill();
+  g.fillStyle = '#fff'; g.font = '64px Bungee, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.fillText(`${s.done}/${s.pins}`, C, C + 100);
+  if (s.flash > 0) { g.fillStyle = s.flashCol; g.globalAlpha = s.flash; g.beginPath(); g.arc(C, C, 320, 0, 7); g.fill(); g.globalAlpha = 1; }
+}
+
+function loop(t) {
+  const dt = Math.min(.05, (t - (last || t)) / 1000); last = t;
+  if (!s.over) {
+    s.ang = (s.ang + s.dir * s.spd * dt + Math.PI * 2) % (Math.PI * 2);
+    if (Math.random() < dt * 4) NH.beep(2400, .01, 'square', .012);
+  }
+  s.flash = Math.max(0, s.flash - dt);
+  draw();
+  requestAnimationFrame(loop);
+}
+document.getElementById('crack').onclick = crack;
+cv.addEventListener('pointerdown', crack);
+document.addEventListener('keydown', e => { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); crack(); } });
+newRun(); requestAnimationFrame(loop);
+</script>
+</body>
+</html>

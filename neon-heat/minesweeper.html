@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Neon Heat Mines</title>
+<title>Neon Mines</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Bungee&family=Rajdhani:wght@500;700&display=swap" rel="stylesheet">
 <style>
@@ -201,6 +201,7 @@
 <div class="grid-floor"></div>
 
 <div class="wrap">
+  <div style="width:100%;display:flex;justify-content:space-between;align-items:center"><a href="index.html" style="color:var(--cyan);text-decoration:none;font-family:Bungee,sans-serif;font-size:14px;text-shadow:0 0 8px var(--cyan)">◀ ARCADE</a><span id="bankTop" style="font-family:Bungee,sans-serif;color:#6dff9a;text-shadow:0 0 10px #2bff6a,2px 2px 0 #000"></span></div>
   <div class="logo">
     <div class="l1">NEON HEAT</div><br>
     <div class="l2">MINESWEEPER</div>
@@ -239,8 +240,11 @@
   </div>
 </div>
 
+<script src="shared.js"></script>
 <script>
 (() => {
+  const showBank = () => { const el = document.getElementById('bankTop'); if (el && window.NH) el.textContent = 'BANK ' + NH.money(NH.bank.get()); };
+  showBank();
   const LEVELS = {
     easy:   { r: 9,  c: 9,  m: 10 },
     medium: { r: 16, c: 16, m: 40 },
@@ -404,6 +408,7 @@
     flags = M;
     const bonus = Math.max(0, Math.round((M * 1000) - secs * 25));
     cash += bonus; updateHud(); setStars(0); jingle();
+    if (window.NH) { NH.bank.add(cash); NH.best('mines', cash); showBank(); }
     const key = 'best_' + level, best = localGet(key);
     let rec = '';
     if (!best || secs < +best) { localSet(key, secs); $('best').textContent = fmt(secs); rec = ' · NEUER REKORD!'; }

@@ -1,0 +1,101 @@
+/* Neon Heat Arcade – gemeinsames Theme */
+:root {
+  --pink: #ff2e93;
+  --hot: #ff6a3d;
+  --sun: #ffc23d;
+  --cyan: #2ef2ff;
+  --violet: #7b2cff;
+  --green: #6dff9a;
+  --night: #12052a;
+  --panel: rgba(18, 5, 42, .78);
+  --text: #fff4fb;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; min-height: 100%; }
+body {
+  background: var(--night);
+  color: var(--text);
+  font-family: "Rajdhani", system-ui, sans-serif;
+  overflow-x: hidden;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Hintergrund */
+.nh-sky { position: fixed; inset: 0; z-index: -3;
+  background: linear-gradient(180deg, #12052a 0%, #3b0a5c 30%, #a3195b 55%, #ff6a3d 72%, #ffc23d 85%, #2a0f4f 85.2%, #12052a 100%); }
+.nh-sun { position: fixed; left: 50%; top: 58%; transform: translate(-50%, -50%); z-index: -3;
+  width: min(60vw, 520px); aspect-ratio: 1; border-radius: 50%;
+  background: linear-gradient(180deg, #ffe66d 0%, #ff9a3d 45%, #ff2e93 100%);
+  -webkit-mask: repeating-linear-gradient(180deg, #000 0 14px, transparent 14px 20px);
+          mask: repeating-linear-gradient(180deg, #000 0 14px, transparent 14px 20px);
+  filter: drop-shadow(0 0 60px rgba(255, 46, 147, .6)); }
+.nh-skyline { position: fixed; left: 0; right: 0; bottom: 14.8%; width: 100%; height: 30vh; z-index: -2; }
+.nh-floor { position: fixed; left: -50%; right: -50%; bottom: 0; height: 15%; z-index: -2;
+  background:
+    linear-gradient(90deg, rgba(46,242,255,.35) 1px, transparent 1px) 0 0 / 60px 100%,
+    linear-gradient(0deg, rgba(255,46,147,.35) 1px, transparent 1px) 0 0 / 100% 18px;
+  transform: perspective(200px) rotateX(55deg); transform-origin: top; }
+
+/* Topbar */
+.nh-top { position: sticky; top: 0; z-index: 5; display: flex; justify-content: space-between; align-items: center; gap: 10px;
+  padding: 10px 16px; background: rgba(18,5,42,.82); border-bottom: 2px solid var(--pink);
+  box-shadow: 0 0 20px rgba(255,46,147,.4); backdrop-filter: blur(6px); }
+.nh-top a { color: var(--cyan); text-decoration: none; font-family: "Bungee", sans-serif; font-size: 14px; text-shadow: 0 0 8px var(--cyan); }
+.nh-top a:hover { color: #fff; }
+.nh-bank { font-family: "Bungee", sans-serif; color: var(--green); text-shadow: 0 0 10px #2bff6a, 2px 2px 0 #000; font-size: 18px; white-space: nowrap; }
+.nh-bank small { font-family: "Rajdhani", sans-serif; font-size: 12px; letter-spacing: 3px; color: var(--sun); text-shadow: none; margin-right: 6px; }
+.nh-snd { background: none; border: 0; font-size: 20px; cursor: pointer; padding: 0 4px; }
+
+/* Layout */
+.wrap { max-width: 980px; margin: 0 auto; padding: 20px 16px 40px; display: flex; flex-direction: column; align-items: center; gap: 16px; }
+.title { text-align: center; line-height: .95; user-select: none; }
+.title h1 { margin: 0; font-family: "Bungee", sans-serif; font-size: clamp(36px, 8vw, 72px); letter-spacing: 2px; display: inline-block; transform: rotate(-4deg);
+  background: linear-gradient(180deg, #fff 0%, #ffd1ec 30%, var(--pink) 60%, var(--violet) 100%);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  filter: drop-shadow(3px 3px 0 #000) drop-shadow(0 0 18px rgba(255,46,147,.7)); }
+.title .sub { display: inline-block; transform: rotate(-4deg); font-family: "Bungee", sans-serif; font-size: clamp(14px, 3.4vw, 24px);
+  color: var(--cyan); letter-spacing: 6px; text-shadow: 0 0 10px var(--cyan), 2px 2px 0 #000; }
+
+.hud { width: 100%; display: flex; flex-wrap: wrap; justify-content: space-around; gap: 10px;
+  background: var(--panel); border: 2px solid var(--pink); border-radius: 14px; padding: 10px 14px;
+  box-shadow: 0 0 20px rgba(255,46,147,.45), inset 0 0 20px rgba(123,44,255,.3); backdrop-filter: blur(6px); }
+.stat { display: flex; flex-direction: column; min-width: 80px; }
+.stat .k { font-size: 12px; letter-spacing: 3px; text-transform: uppercase; color: var(--sun); }
+.stat .v { font-family: "Bungee", sans-serif; font-size: 22px; color: #fff; text-shadow: 0 0 8px var(--pink); }
+.stat .v.cash { color: var(--green); text-shadow: 0 0 10px #2bff6a, 2px 2px 0 #000; }
+
+.panel { background: var(--panel); border-radius: 16px; padding: 14px; border: 3px solid transparent;
+  background-image: linear-gradient(rgba(18,5,42,.9), rgba(18,5,42,.9)), linear-gradient(135deg, var(--pink), var(--sun), var(--cyan), var(--violet));
+  background-origin: border-box; background-clip: padding-box, border-box; box-shadow: 0 0 40px rgba(255,46,147,.4); }
+
+.btn { font-family: "Bungee", sans-serif; font-size: 14px; letter-spacing: 1px; color: #fff; cursor: pointer;
+  padding: 10px 14px; border-radius: 10px; border: 2px solid var(--cyan);
+  background: linear-gradient(180deg, rgba(46,242,255,.18), rgba(123,44,255,.25));
+  text-shadow: 0 0 6px var(--cyan); box-shadow: 0 0 10px rgba(46,242,255,.35);
+  transition: transform .1s, box-shadow .2s, background .2s; }
+.btn:hover { transform: translateY(-2px); box-shadow: 0 0 18px rgba(46,242,255,.7); }
+.btn:disabled { opacity: .45; cursor: not-allowed; transform: none; }
+.btn.hot { border-color: var(--pink); background: linear-gradient(180deg, var(--pink), var(--violet)); text-shadow: none; box-shadow: 0 0 18px rgba(255,46,147,.8); }
+.btn.big { font-size: 20px; padding: 14px 26px; }
+.row { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; align-items: center; }
+.help { font-size: 15px; opacity: .9; text-align: center; max-width: 640px; text-shadow: 1px 1px 0 #000; margin: 0; }
+.help b { color: var(--sun); }
+
+/* Overlay */
+.nh-overlay { position: fixed; inset: 0; display: none; place-items: center; z-index: 20; background: rgba(18,5,42,.6); backdrop-filter: blur(3px); }
+.nh-overlay.show { display: grid; animation: nhfade .4s; }
+.nh-overlay.lose { background: rgba(60,0,10,.65); backdrop-filter: grayscale(1) blur(2px); }
+@keyframes nhfade { from { opacity: 0; } }
+.nh-banner { text-align: center; padding: 16px; max-width: 700px; }
+.nh-banner h2 { font-family: "Bungee", sans-serif; margin: 0; font-size: clamp(40px, 10vw, 100px); line-height: 1; transform: rotate(-3deg);
+  animation: nhslam .5s cubic-bezier(.2,1.6,.4,1); }
+.nh-overlay.win h2 { color: var(--sun); text-shadow: 4px 4px 0 #000, 0 0 30px var(--hot); }
+.nh-overlay.lose h2 { color: #ff3b3b; text-shadow: 4px 4px 0 #000, 0 0 30px #f00; }
+@keyframes nhslam { from { transform: scale(3) rotate(-3deg); opacity: 0; } }
+.nh-banner p { font-size: 22px; font-weight: 700; margin: 10px 0 20px; text-shadow: 2px 2px 0 #000; }
+
+.nh-flash { position: fixed; inset: 0; background: #fff; opacity: 0; pointer-events: none; z-index: 19; }
+.nh-flash.go { animation: nhflash .45s ease-out; }
+@keyframes nhflash { 0% { opacity: .9; } 100% { opacity: 0; } }
+.shake { animation: nhshake .5s; }
+@keyframes nhshake { 10%,90% { transform: translate(-2px,1px); } 20%,80% { transform: translate(4px,-2px); } 30%,50%,70% { transform: translate(-6px,3px); } 40%,60% { transform: translate(6px,-3px); } }

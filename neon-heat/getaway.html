@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Getaway</title>
+<link href="https://fonts.googleapis.com/css2?family=Bungee&family=Rajdhani:wght@500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared.css">
+<style>
+  canvas { display: block; width: min(520px, calc(100vw - 60px)); aspect-ratio: 1; border-radius: 8px; touch-action: none; }
+  .pad { display: grid; grid-template-columns: repeat(3, 58px); grid-template-rows: repeat(2, 58px); gap: 6px; }
+  .pad .btn { padding: 0; font-size: 22px; }
+  .pad .up { grid-column: 2; }
+  .pad .left { grid-column: 1; grid-row: 2; } .pad .down { grid-column: 2; grid-row: 2; } .pad .right { grid-column: 3; grid-row: 2; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="title"><h1>GETAWAY</h1></div>
+  <div class="hud">
+    <div class="stat"><span class="k">Flucht</span><span class="v" id="lvl">1</span></div>
+    <div class="stat"><span class="k">Beute</span><span class="v cash" id="cash">$0</span></div>
+    <div class="stat"><span class="k">Streifen</span><span class="v" id="cops">1</span></div>
+    <div class="stat"><span class="k">Rekord</span><span class="v" id="best">—</span></div>
+  </div>
+  <div class="panel" id="frame"><canvas id="c" width="520" height="520"></canvas></div>
+  <div class="pad">
+    <button class="btn up" data-d="0,-1">▲</button>
+    <button class="btn left" data-d="-1,0">◀</button><button class="btn down" data-d="0,1">▼</button><button class="btn right" data-d="1,0">▶</button>
+  </div>
+  <p class="help">Fahr mit <b>Pfeiltasten / WASD</b>, <b>Wischen</b> oder den Buttons zum Versteck 🏠. Sammle 💰 unterwegs. Die Streifen 🚓 verfolgen dich – mit jeder Flucht werden es mehr und sie werden schneller.</p>
+</div>
+<script src="shared.js"></script>
+<script>
+NH.init();
+const cv = document.getElementById('c'), g = cv.getContext('2d'), PX = 520;
+let s, last = 0;
+
+function maze(n) {
+  // Zellen-Labyrinth (Backtracking) in Kachel-Gitter (2n+1) umwandeln, plus Zusatz-Durchbrüche für Schleifen
+  const N = 2 * n + 1, m = Array.from({ length: N }, () => Array(N).fill(1));
+  const seen = Array.from({ length: n }, () => Array(n).fill(false));
+  const stack = [[0, 0]]; seen[0][0] = true; m[1][1] = 0;
+  while (stack.length) {
+    const [x, y] = stack[stack.length - 1];
+    const nb = [[1, 0], [-1, 0], [0, 1], [0, -1]].map(([dx, dy]) => [x + dx, y + dy, dx, dy]).filter(([a, b]) => a >= 0 && b >= 0 && a < n && b < n && !seen[b][a]);
+    if (!nb.length) { stack.pop(); continue; }
+    const [a, b, dx, dy] = nb[Math.floor(Math.random() * nb.length)];
+    seen[b][a] = true; m[2 * y + 1 + dy][2 * x + 1 + dx] = 0; m[2 * b + 1][2 * a + 1] = 0; stack.push([a, b]);
+  }
+  for (let k = 0; k < n * 1.5; k++) {
+    const x = 1 + Math.floor(Math.random() * (N - 2)), y = 1 + Math.floor(Math.random() * (N - 2));
+    if (m[y][x] === 1 && ((m[y][x - 1] === 0 && m[y][x + 1] === 0) || (m[y - 1][x] === 0 && m[y + 1][x] === 0))) m[y][x] = 0;
+  }
+  return m;
+}
+
+function newRun() { s = { lvl: 1, cash: 0, dead: false }; newLevel(); }
+function newLevel() {
+  const n = Math.min(12, 6 + Math.floor(s.lvl / 2));
+  s.m = maze(n); s.N = s.m.length; s.T = PX / s.N;
+  s.p = { x: 1, y: 1, rx: 1, ry: 1 };
+  s.exit = { x: s.N - 2, y: s.N - 2 };
+  s.cops = []; const nc = Math.min(5, Math.ceil(s.lvl / 2));
+  const spots = [[s.N - 2, 1], [1, s.N - 2], [s.N - 2, Math.floor(s.N / 2) | 1], [Math.floor(s.N / 2) | 1, s.N - 2], [Math.floor(s.N / 2) | 1, 1]];
+  for (let i = 0; i < nc; i++) { const [x, y] = spots[i]; s.cops.push({ x, y, rx: x, ry: y, t: 1 + i * .4 }); }
+  s.copEvery = Math.max(.17, .42 - s.lvl * .03);
+  s.cashes = [];
+  const free = []; for (let y = 1; y < s.N - 1; y++) for (let x = 1; x < s.N - 1; x++) if (!s.m[y][x] && x + y > 4) free.push([x, y]);
+  for (let i = 0; i < 4 + s.lvl; i++) { const k = Math.floor(Math.random() * free.length); s.cashes.push(free.splice(k, 1)[0]); }
+  s.moveCd = 0; s.want = null; s.dead = false;
+  hud();
+}
+const open = (x, y) => s.m[y] && s.m[y][x] === 0;
+function tryMove(dx, dy) {
+  if (s.dead) return;
+  const nx = s.p.x + dx, ny = s.p.y + dy;
+  if (!open(nx, ny)) return;
+  s.p.x = nx; s.p.y = ny; NH.beep(300 + Math.random() * 40, .02, 'square', .02);
+  const ci = s.cashes.findIndex(([x, y]) => x === nx && y === ny);
+  if (ci >= 0) { s.cashes.splice(ci, 1); s.cash += 300 * s.lvl; NH.beep(880, .08, 'triangle', .06); NH.beep(1320, .1, 'triangle', .05); hud(); }
+  if (nx === s.exit.x && ny === s.exit.y) escaped();
+  checkCaught();
+}
+function escaped() {
+  s.cash += 1000 * s.lvl; NH.jingle(); NH.flash();
+  s.lvl++; hud();
+  NH.best('getaway', s.lvl - 1);
+  s.dead = true; setTimeout(newLevel, 700);
+}
+function bfsStep(fx, fy, tx, ty) {
+  const key = (x, y) => y * s.N + x, prev = new Map([[key(fx, fy), null]]), q = [[fx, fy]];
+  while (q.length) {
+    const [x, y] = q.shift();
+    if (x === tx && y === ty) break;
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const a = x + dx, b = y + dy;
+      if (open(a, b) && !prev.has(key(a, b))) { prev.set(key(a, b), [x, y]); q.push([a, b]); }
+    }
+  }
+  let cur = [tx, ty], p = prev.get(key(tx, ty));
+  if (p === undefined) return [fx, fy];
+  while (p && !(p[0] === fx && p[1] === fy)) { cur = p; p = prev.get(key(p[0], p[1])); }
+  return cur;
+}
+function checkCaught() {
+  if (s.dead) return;
+  if (s.cops.some(c => c.x === s.p.x && c.y === s.p.y)) {
+    s.dead = true; NH.noise(.6, 900, .4); NH.sad(); NH.shake(document.getElementById('frame')); NH.vibrate([100, 50, 200]);
+    const done = s.lvl - 1;
+    NH.bank.add(s.cash);
+    const rec = NH.best('getaway', done);
+    setTimeout(() => NH.overlay('lose', 'GESCHNAPPT', `${done} erfolgreiche Flucht${done === 1 ? '' : 'en'} · ${NH.money(s.cash)} in die Bank${rec && done ? ' · NEUER REKORD!' : ''}`, newRun), 600);
+  }
+}
+function step(dt) {
+  if (s.dead) return;
+  s.moveCd -= dt;
+  const dir = held();
+  if (dir && s.moveCd <= 0) { tryMove(...dir); s.moveCd = .13; }
+  for (const c of s.cops) {
+    c.t -= dt;
+    if (c.t <= 0) {
+      c.t = s.copEvery * (0.9 + Math.random() * .3);
+      // gelegentlich zufällig abbiegen, damit man entkommen kann
+      if (Math.random() < .18) {
+        const opts = [[1, 0], [-1, 0], [0, 1], [0, -1]].filter(([dx, dy]) => open(c.x + dx, c.y + dy));
+        const [dx, dy] = opts[Math.floor(Math.random() * opts.length)]; c.x += dx; c.y += dy;
+      } else { const [nx, ny] = bfsStep(c.x, c.y, s.p.x, s.p.y); c.x = nx; c.y = ny; }
+    }
+  }
+  checkCaught();
+}
+function draw(dt) {
+  const T = s.T, k = Math.min(1, dt * 18);
+  g.fillStyle = '#12052a'; g.fillRect(0, 0, PX, PX);
+  for (let y = 0; y < s.N; y++) for (let x = 0; x < s.N; x++) {
+    if (s.m[y][x]) {
+      g.fillStyle = (x + y) % 2 ? '#3d1772' : '#331463'; g.fillRect(x * T, y * T, T, T);
+      g.fillStyle = 'rgba(255,46,147,.5)'; g.fillRect(x * T + T * .3, y * T + T * .3, T * .12, T * .12);
+    } else { g.fillStyle = '#1a0836'; g.fillRect(x * T, y * T, T, T); }
+  }
+  g.strokeStyle = 'rgba(46,242,255,.25)'; g.lineWidth = 1;
+  g.strokeRect(.5, .5, PX - 1, PX - 1);
+  g.font = `${T * .75}px serif`; g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.shadowColor = '#6dff9a'; g.shadowBlur = 10;
+  s.cashes.forEach(([x, y]) => g.fillText('💰', (x + .5) * T, (y + .55) * T));
+  g.shadowColor = '#ffc23d'; g.shadowBlur = 20; g.fillText('🏠', (s.exit.x + .5) * T, (s.exit.y + .55) * T);
+  s.p.rx += (s.p.x - s.p.rx) * k; s.p.ry += (s.p.y - s.p.ry) * k;
+  g.shadowColor = '#fff'; g.shadowBlur = 16; g.fillText('🏎️', (s.p.rx + .5) * T, (s.p.ry + .55) * T);
+  const on = Math.floor(performance.now() / 140) % 2;
+  for (const c of s.cops) {
+    c.rx += (c.x - c.rx) * k; c.ry += (c.y - c.ry) * k;
+    g.shadowColor = on ? '#ff2840' : '#2860ff'; g.shadowBlur = 26;
+    g.fillText('🚓', (c.rx + .5) * T, (c.ry + .55) * T);
+  }
+  g.shadowBlur = 0;
+}
+function hud() {
+  document.getElementById('lvl').textContent = s.lvl;
+  document.getElementById('cash').textContent = NH.money(s.cash);
+  document.getElementById('cops').textContent = s.cops ? s.cops.length : 1;
+  const b = NH.best('getaway'); document.getElementById('best').textContent = b === null ? '—' : b;
+}
+// Eingabe
+const keyDirs = { ArrowUp: [0, -1], w: [0, -1], ArrowDown: [0, 1], s: [0, 1], ArrowLeft: [-1, 0], a: [-1, 0], ArrowRight: [1, 0], d: [1, 0] };
+const down = []; let btnDir = null;
+const held = () => btnDir || (down.length ? keyDirs[down[down.length - 1]] : null);
+document.addEventListener('keydown', e => {
+  const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+  if (!keyDirs[k]) return; e.preventDefault();
+  if (!down.includes(k)) { down.push(k); tryMove(...keyDirs[k]); s.moveCd = .2; }
+});
+document.addEventListener('keyup', e => { const k = e.key.length === 1 ? e.key.toLowerCase() : e.key; const i = down.indexOf(k); if (i >= 0) down.splice(i, 1); });
+document.querySelectorAll('[data-d]').forEach(b => {
+  const d = b.dataset.d.split(',').map(Number);
+  b.addEventListener('pointerdown', e => { e.preventDefault(); btnDir = d; tryMove(...d); s.moveCd = .2; });
+  ['pointerup', 'pointerleave', 'pointercancel'].forEach(ev => b.addEventListener(ev, () => { if (btnDir === d) btnDir = null; }));
+});
+let sw = null;
+cv.addEventListener('pointerdown', e => { sw = [e.clientX, e.clientY]; });
+cv.addEventListener('pointerup', e => {
+  if (!sw) return; const dx = e.clientX - sw[0], dy = e.clientY - sw[1]; sw = null;
+  if (Math.max(Math.abs(dx), Math.abs(dy)) < 20) return;
+  const d = Math.abs(dx) > Math.abs(dy) ? [Math.sign(dx), 0] : [0, Math.sign(dy)];
+  // bis zur nächsten Kreuzung fahren
+  let n = 0; const go = () => { if (n++ > 30 || s.dead || !open(s.p.x + d[0], s.p.y + d[1])) return; tryMove(...d);
+    const side = d[0] ? [[0, 1], [0, -1]] : [[1, 0], [-1, 0]];
+    if (side.some(([a, b]) => open(s.p.x + a, s.p.y + b))) return; setTimeout(go, 90); };
+  go();
+});
+function loop(t) { const dt = Math.min(.05, (t - last) / 1000); last = t; step(dt); draw(dt); requestAnimationFrame(loop); }
+newRun(); requestAnimationFrame(t => { last = t; loop(t); });
+</script>
+</body>
+</html>
