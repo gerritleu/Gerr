@@ -66,7 +66,7 @@ function crack() {
 }
 function vaultOpen() {
   const loot = 1000 * s.vault * s.vault + 500 * s.lives;
-  s.cash += loot; NH.jingle(); NH.flash();
+  s.cash += loot; NH.bank.add(loot); NH.jingle(); NH.flash();
   hud();
   s.over = true;
   setTimeout(() => { s.over = false; s.vault++; newVault(); }, 900);
@@ -74,10 +74,9 @@ function vaultOpen() {
 function busted() {
   s.over = true; NH.sad();
   const cleared = s.vault - 1;
-  NH.bank.add(s.cash);
   const rec = NH.best('safe', cleared);
   hud();
-  setTimeout(() => NH.overlay('lose', 'ALARM!', `${cleared} Tresor${cleared === 1 ? '' : 'e'} geknackt · ${NH.money(s.cash)} in die Bank${rec && cleared ? ' · NEUER REKORD!' : ''}`, newRun), 600);
+  setTimeout(() => NH.overlay('lose', 'ALARM!', `${cleared} Tresor${cleared === 1 ? '' : 'e'} geknackt · insgesamt ${NH.money(s.cash)} erbeutet${rec && cleared ? ' · NEUER REKORD!' : ''}`, newRun), 600);
 }
 
 function renderPins() { document.getElementById('pins').innerHTML = Array.from({ length: s.pins }, (_, i) => `<div class="pin ${i < s.done ? 'done' : ''}"></div>`).join(''); }

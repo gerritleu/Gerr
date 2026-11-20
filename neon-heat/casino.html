@@ -83,6 +83,8 @@ function renderStatic(r) { r.strip.style.transition = 'none'; r.strip.style.tran
 reels.forEach(renderStatic);
 
 function updateBet() {
+  // Einsatz automatisch senken, wenn die Bank ihn nicht mehr deckt
+  while (!spinning && betI > 0 && NH.bank.get() < BETS[betI] && NH.bank.get() >= BETS[0]) betI--;
   const b = BETS[betI];
   document.getElementById('bet').textContent = NH.money(b);
   document.getElementById('betHud').textContent = NH.money(b);
@@ -140,7 +142,7 @@ document.getElementById('plus').onclick = () => { betI = Math.min(BETS.length - 
 document.getElementById('minus').onclick = () => { betI = Math.max(0, betI - 1); NH.beep(440, .04); updateBet(); };
 document.getElementById('loan').onclick = () => { NH.bank.add(1000); msg('Der Kredithai grinst. Verzock es nicht.', '#ff2e93'); NH.beep(200, .3, 'sawtooth', .05, 200); updateBet(); };
 document.addEventListener('keydown', e => { if (e.key === ' ') { e.preventDefault(); spin(); } });
-window.addEventListener('resize', () => reels.forEach(renderStatic));
+window.addEventListener('resize', () => { if (!spinning) reels.forEach(renderStatic); });
 updateBet();
 </script>
 </body>

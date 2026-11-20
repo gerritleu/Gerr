@@ -99,7 +99,7 @@ function press(i) {
     if (s.idx === s.seq.length) {
       s.input = false; stopTimer();
       const loot = 250 * s.lvl * s.seq.length;
-      s.cash += loot; log(`ZUGRIFF GEWÄHRT +${NH.money(loot)}`, '#6dff9a'); NH.jingle();
+      s.cash += loot; NH.bank.add(loot); log(`ZUGRIFF GEWÄHRT +${NH.money(loot)}`, '#6dff9a'); NH.jingle();
       s.lvl++; if (s.lvl === 4) { s.seq = []; log('Neues Sicherheitsgitter erkannt: 3×3', '#ff2e93'); }
       if (s.lvl === 7) log('Warnung: Eingabe-Timeout aktiv!', '#ff2e93');
       setTimeout(nextLevel, 900);
@@ -117,10 +117,10 @@ function fail(i) {
 }
 function gameOver() {
   const reached = s.lvl - 1;
-  NH.bank.add(s.cash); NH.sad();
+  NH.sad();
   const rec = NH.best('hacker', reached);
   log('VERBINDUNG GETRENNT.', '#ff3b3b');
-  setTimeout(() => NH.overlay('lose', 'AUFGEFLOGEN', `${reached} Firewall-Level geknackt · ${NH.money(s.cash)} in die Bank${rec && reached ? ' · NEUER REKORD!' : ''}`, newRun), 700);
+  setTimeout(() => NH.overlay('lose', 'AUFGEFLOGEN', `${reached} Firewall-Level geknackt · insgesamt ${NH.money(s.cash)} erbeutet${rec && reached ? ' · NEUER REKORD!' : ''}`, newRun), 700);
 }
 function startTimer(ms) {
   const t0 = performance.now();

@@ -55,7 +55,7 @@ function maze(n) {
   return m;
 }
 
-function newRun() { s = { lvl: 1, cash: 0, dead: false }; newLevel(); }
+function newRun() { s = { lvl: 1, cash: 0, dead: false, rec: false }; newLevel(); }
 function newLevel() {
   const n = Math.min(12, 6 + Math.floor(s.lvl / 2));
   s.m = maze(n); s.N = s.m.length; s.T = PX / s.N;
@@ -78,14 +78,14 @@ function tryMove(dx, dy) {
   if (!open(nx, ny)) return;
   s.p.x = nx; s.p.y = ny; NH.beep(300 + Math.random() * 40, .02, 'square', .02);
   const ci = s.cashes.findIndex(([x, y]) => x === nx && y === ny);
-  if (ci >= 0) { s.cashes.splice(ci, 1); s.cash += 300 * s.lvl; NH.beep(880, .08, 'triangle', .06); NH.beep(1320, .1, 'triangle', .05); hud(); }
+  if (ci >= 0) { s.cashes.splice(ci, 1); s.cash += 300 * s.lvl; NH.bank.add(300 * s.lvl); NH.beep(880, .08, 'triangle', .06); NH.beep(1320, .1, 'triangle', .05); hud(); }
   if (nx === s.exit.x && ny === s.exit.y) escaped();
   checkCaught();
 }
 function escaped() {
-  s.cash += 1000 * s.lvl; NH.jingle(); NH.flash();
+  s.cash += 1000 * s.lvl; NH.bank.add(1000 * s.lvl); NH.jingle(); NH.flash();
   s.lvl++; hud();
-  NH.best('getaway', s.lvl - 1);
+  if (NH.best('getaway', s.lvl - 1)) s.rec = true;
   s.dead = true; setTimeout(newLevel, 700);
 }
 function bfsStep(fx, fy, tx, ty) {
@@ -108,9 +108,8 @@ function checkCaught() {
   if (s.cops.some(c => c.x === s.p.x && c.y === s.p.y)) {
     s.dead = true; NH.noise(.6, 900, .4); NH.sad(); NH.shake(document.getElementById('frame')); NH.vibrate([100, 50, 200]);
     const done = s.lvl - 1;
-    NH.bank.add(s.cash);
-    const rec = NH.best('getaway', done);
-    setTimeout(() => NH.overlay('lose', 'GESCHNAPPT', `${done} erfolgreiche Flucht${done === 1 ? '' : 'en'} · ${NH.money(s.cash)} in die Bank${rec && done ? ' · NEUER REKORD!' : ''}`, newRun), 600);
+    const rec = s.rec;
+    setTimeout(() => NH.overlay('lose', 'GESCHNAPPT', `${done} erfolgreiche Flucht${done === 1 ? '' : 'en'} · insgesamt ${NH.money(s.cash)} erbeutet${rec && done ? ' · NEUER REKORD!' : ''}`, newRun), 600);
   }
 }
 function step(dt) {
@@ -184,7 +183,7 @@ cv.addEventListener('pointerup', e => {
   if (Math.max(Math.abs(dx), Math.abs(dy)) < 20) return;
   const d = Math.abs(dx) > Math.abs(dy) ? [Math.sign(dx), 0] : [0, Math.sign(dy)];
   // bis zur nächsten Kreuzung fahren
-  let n = 0; const go = () => { if (n++ > 30 || s.dead || !open(s.p.x + d[0], s.p.y + d[1])) return; tryMove(...d);
+  let n = 0; const lvlAt = s.lvl, runAt = s; const go = () => { if (n++ > 30 || s.dead || s !== runAt || s.lvl !== lvlAt || !open(s.p.x + d[0], s.p.y + d[1])) return; tryMove(...d);
     const side = d[0] ? [[0, 1], [0, -1]] : [[1, 0], [-1, 0]];
     if (side.some(([a, b]) => open(s.p.x + a, s.p.y + b))) return; setTimeout(go, 90); };
   go();

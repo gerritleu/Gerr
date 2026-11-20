@@ -183,6 +183,10 @@ let dragging = false;
 cv.addEventListener('pointerdown', e => { start(); dragging = true; st.tx = pointerX(e); cv.setPointerCapture(e.pointerId); });
 cv.addEventListener('pointermove', e => { if (dragging) st.tx = pointerX(e); });
 cv.addEventListener('pointerup', () => dragging = false);
+window.addEventListener('pageshow', e => { if (e.persisted) reset(); });
+window.addEventListener('pagehide', () => {
+  if (st.started && st.alive) { st.alive = false; NH.bank.add(st.cash); NH.best('highway', Math.round(st.cash)); }
+});
 document.addEventListener('visibilitychange', () => { if (document.hidden && st.started && st.alive) st.paused = true; });
 
 reset();
